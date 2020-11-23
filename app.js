@@ -1,7 +1,6 @@
-const { log } = require('console')
 const express = require('express')
 const app = express()
-const server = require('http').createServer(app)
+const server = require('http').Server(app)
 const io = require('socket.io')(server)
 const cryptoRandomString = require('crypto-random-string')
 
@@ -54,7 +53,7 @@ io.on('connection', (socket) => {
 	})
 	socket.on('join', (roomCode) => {
 		socket.join(roomCode)
-		socket.to(roomCode).broadcast.emit('user_joined', rooms[roomCode])
+		socket.broadcast.to(roomCode).emit('user_joined', rooms[roomCode])
 	})
 
 	socket.on('shoot',(data)=>{
@@ -67,19 +66,23 @@ io.on('connection', (socket) => {
 
 		if(rooms[data.roomCode]['score'][0] && rooms[data.roomCode]['score'][1]){
 			if(rooms[data.roomCode]['score'][0] > rooms[data.roomCode]['score'][1]){
-				socket.to(data.roomCode).emit('result',rooms[data.roomCode]['users'][0])
+				socket.broadcast.to(data.roomCode).emit('result',rooms[data.roomCode]['users'][0])
 			}
 			if(rooms[data.roomCode]['score'][0] < rooms[data.roomCode]['score'][1]){
-				socket.to(data.roomCode).emit('result',rooms[data.roomCode]['users'][1])
+				socket.broadcast.to(data.roomCode).emit('result',rooms[data.roomCode]['users'][1])
 			}
 			else{
-				socket.to(data.roomCode).emit('result','비김')
+				socket.broadcast.to(data.roomCode).emit('result','비김')
 			}
 		}
 	})
 
+	socket.on('chat',(data)=>{
+		io.to(data.roomCode).emit('chat message', data.message)
+	})
+
 })
 
-app.listen(3000, () => {
+server.listen(3000,()=>{
 	console.log('Server Running...')
 })
