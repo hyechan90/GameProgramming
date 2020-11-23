@@ -4,44 +4,62 @@ const server = require('http').Server(app)
 const io = require('socket.io')(server)
 const cryptoRandomString = require('crypto-random-string')
 
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+
 let rooms = {
+	test:{
+		length: '2',
+		asdf:{
+			type: undefined,
+			click: 0	
+		}
+	}
 }
 
 app.get('/allRooms', (req, res) => {
 	res.json(rooms)
 })
 
-app.get('/createRoom/:user', (req, res) => {
+app.post('/createRoom', (req, res) => {
 	const roomCode = cryptoRandomString({ length: 6, type: 'alphanumeric' })
-	const user = req.params.user
+	const user = req.body.user
+	const length = req.body.length
 
-	rooms[roomCode] = {
-		users:[user],
-		score: []
+	rooms[roomCode] = {}
+	rooms[roomCode]['length'] = parseInt(length)
+	rooms[roomCode][user] = {
+		type: undefined,
+		click: 0	
 	}
+	
 	console.log(rooms)
 	res.send(roomCode)
 })
 
-app.get('/joinRoom/:user/:roomCode', (req, res) => {
-	const roomCode = req.params.roomCode
-	let user = req.params.user
+app.post('/joinRoom/', (req, res) => {
+	const roomCode = req.body.roomCode
+	let user = req.body.user
 
 	if (!(roomCode in rooms)) {
 		res.send('없는 방입니다.')
 		return
 	}
 
-	if (rooms[roomCode]['users'].length > 1) {
+	if (Object.keys(rooms[roomCode]).length > rooms[roomCode].length) {
 		res.send('풀방입니다.')
 		return
 	}
 
-	if (rooms[roomCode]['users'][0] === user) {
-		user = user + '1'
+	if (user in rooms[roomCode]) {
+		res.send('이미 있는 닉네임입니다.')
+		return
 	}
 
-	rooms[roomCode]['users'].push(user)
+	rooms[roomCode][user] = {
+		type: undefined,
+		click: 0
+	}
 
 	console.log(rooms)
 	res.send(rooms[roomCode])
@@ -56,29 +74,8 @@ io.on('connection', (socket) => {
 		socket.broadcast.to(roomCode).emit('user_joined', rooms[roomCode])
 	})
 
-	socket.on('shoot',(data)=>{
-		if(rooms[data.roomCode]['users'][0] === data.user){
-			rooms[data.roomCode]['score'][0] === data.score
-		}
-		else{
-			rooms[data.roomCode]['score'][1] === data.score
-		}
-
-		if(rooms[data.roomCode]['score'][0] && rooms[data.roomCode]['score'][1]){
-			if(rooms[data.roomCode]['score'][0] > rooms[data.roomCode]['score'][1]){
-				socket.broadcast.to(data.roomCode).emit('result',rooms[data.roomCode]['users'][0])
-			}
-			if(rooms[data.roomCode]['score'][0] < rooms[data.roomCode]['score'][1]){
-				socket.broadcast.to(data.roomCode).emit('result',rooms[data.roomCode]['users'][1])
-			}
-			else{
-				socket.broadcast.to(data.roomCode).emit('result','비김')
-			}
-		}
-	})
-
 	socket.on('chat',(data)=>{
-		io.to(data.roomCode).emit('chat message', data.message)
+		io.to(data.roomCode).emit('chat message', `${data.user} : ${data.message}`)
 	})
 
 })
